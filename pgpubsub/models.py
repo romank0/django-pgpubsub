@@ -19,7 +19,7 @@ class Notification(models.Model):
     # compatible. From the version this change is release the field is effectively non
     # nullable as in it always gets a value.
     # After some time the field should be made non nullable here.
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    created_at = models.DateTimeField(null=True)
 
     def __repr__(self):
         return (
@@ -33,3 +33,13 @@ class Notification(models.Model):
     @classmethod
     def from_channel(cls, channel: Type[BaseChannel]):
         return cls.objects.filter(channel=channel.listen_safe_name())
+
+    def _do_insert(self, manager, using, fields, update_pk, raw):
+        return super(Notification, self)._do_insert(
+            manager, using, [f for f in fields if f.attname not in ['created_at']], update_pk, raw
+        )
+
+    def _do_update(self, manager, using, fields, update_pk, raw):
+        return super(Notification, self)._do_update(
+            manager, using, [f for f in fields if f.attname not in ['created_at']], update_pk, raw
+        )

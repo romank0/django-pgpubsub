@@ -195,3 +195,11 @@ def test_persistent_notification_has_a_creation_timestamp(pg_connection):
     assert 1 == len(pg_connection.notifies)
     stored_notification = Notification.from_channel(channel=MediaTriggerChannel).get()
     assert stored_notification.created_at >= before_save_datetime
+
+
+@pytest.mark.django_db(transaction=True)
+def test_notification_created_directly_gets_a_creation_timestamp(pg_connection):
+    before_save_datetime = datetime.datetime.now()
+    notification = Notification.objects.create(channel="pgpubsub_a83de", payload='{}')
+    stored_notification = Notification.objects.get(pk=notification.id)
+    assert stored_notification.created_at >= before_save_datetime
