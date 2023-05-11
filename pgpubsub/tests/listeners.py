@@ -59,6 +59,9 @@ def email(author: Author):
 
 @pgpubsub.post_save_listener(MediaTriggerChannel)
 def scan_media(old: Media, new: Media):
+    if new.size > 1000000:
+        print('Skipping scan of such large file')
+        return
     if not old:
         print(f'Perform virus scan on the new media {new}.')
     else:
