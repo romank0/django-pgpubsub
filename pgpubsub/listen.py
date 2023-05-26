@@ -141,11 +141,22 @@ class NotificationRecoveryProcessor(LockableNotificationProcessor):
 
     def process(self):
         print(f'Processing all notifications for channel {self.channel_cls.name()} \n')
-        notifications = (
-            Notification.objects.select_for_update(
-                skip_locked=True).filter(channel=self.notification.channel)
-        )
-        print(f'Found notifications: {notifications}')
+        last_processed_notification_id = None
+        while True:
+            notifications = (
+                Notification.objects.select_for_update(
+                    skip_locked=True).filter(channel=self.notification.channel)
+            ).order_by('id')
+            if last_processed_notification_id:
+                notifications.filter(id__gt=last_processed_notification_id)
+            notifications = notifications[:self.BATCH_SIZE]
+            if not notifications:
+                break
+            self._process_batch(notifications)
+            last_processed_notification_id = notifications[len(notifications) - 1].id
+
+    def _process_batch(self, notifications):
+        print(f'Processing notifications batch: {notifications}')
         for notification in notifications:
             self.notification = notification
             try:
