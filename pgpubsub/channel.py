@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import hashlib
 import inspect
@@ -270,6 +271,11 @@ def set_notification_context(
             else:
                 raise
 
+async def aset_notification_context(
+    context: Dict[str, Any], using: Optional[str] = None
+) -> None:
+    from asgiref.sync import sync_to_async
+    await sync_to_async(set_notification_context)(context, using=using)
 
 def locate_channel(channel):
     if isinstance(channel, str):

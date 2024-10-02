@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 
@@ -12,11 +13,13 @@ from pgpubsub.listen import process_notifications
 from pgpubsub.listeners import ListenerFilterProvider
 from pgpubsub.models import Notification
 from pgpubsub.notify import process_stored_notifications
+from pgpubsub.tests import skip_unless_django_5
 from pgpubsub.tests.channels import (
     MediaTriggerChannel,
 )
 from pgpubsub.tests.connection import simulate_listener_does_not_receive_notifications
 from pgpubsub.tests.models import Author, Media, Post
+
 
 
 @pytest.mark.django_db(transaction=True)
@@ -46,11 +49,36 @@ def test_notification_context_is_stored_in_payload(
     else:
         settings.PGPUBSUB_TX_BOUND_NOTIFICATION_CONTEXT = tx_bound_context
 
-    pgpubsub.set_notification_context({'test_key': 'test-value'},
-                                        using=db_alias)
+    pgpubsub.set_notification_context(
+        {'test_key': 'test-value'}, using=db_alias
+    )
     Media.objects.create(name='avatar.jpg', content_type='image/png', size=15000)
 
     stored_notification = Notification.from_channel(channel=MediaTriggerChannel).get()
+    assert stored_notification.payload['context'] == {'test_key': 'test-value'}
+
+    pg_connection.poll()
+    assert 1 == len(pg_connection.notifies)
+
+
+@skip_unless_django_5
+@pytest.mark.parametrize("db_alias", [None, "default"])
+@pytest.mark.parametrize("tx_bound_context", [None, False])
+@pytest.mark.django_db(transaction=True)
+async def test_notification_context_is_stored_in_payload_with_django5_async_orm(
+    pg_connection, settings, db_alias, tx_bound_context, clear_notification_context
+):
+    if tx_bound_context is None:
+        delattr(settings, 'PGPUBSUB_TX_BOUND_NOTIFICATION_CONTEXT')
+    else:
+        settings.PGPUBSUB_TX_BOUND_NOTIFICATION_CONTEXT = tx_bound_context
+
+    await pgpubsub.aset_notification_context(
+        {'test_key': 'test-value'}, using=db_alias
+    )
+    await Media.objects.acreate(name='avatar.jpg', content_type='image/png', size=15000)
+
+    stored_notification = await Notification.from_channel(channel=MediaTriggerChannel).aget()
     assert stored_notification.payload['context'] == {'test_key': 'test-value'}
 
     pg_connection.poll()
