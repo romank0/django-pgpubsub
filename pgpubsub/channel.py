@@ -232,12 +232,15 @@ class TriggerChannel(BaseChannel):
         return model_data
 
 
-TX_ABORTED_ERROR_MESSAGE = (
-    'current transaction is aborted, commands ignored until end of transaction block'
-)
+def _get_notification_context(cursor) -> dict[str, str]:
+    cursor.execute("SELECT current_setting('pgpubsub.notification_context', True)")
+    row = cursor.fetchone()
+    val = row[0]
+    return json.loads(val) if val else {}
 
-def set_notification_context(
-    context: Dict[str, Any], using: Optional[str] = None
+
+def update_notification_context(
+    mutation: Callable[[Dict[str, Any]], Dict[str, Any]], using: Optional[str] = None
 ) -> None:
     if using:
         conn = connections[using]
@@ -256,6 +259,7 @@ def set_notification_context(
         )
     with conn.cursor() as cursor:
         try:
+            context = mutation(_get_notification_context(cursor))
             if use_tx_bound_notification_context:
                 scope = 'LOCAL'
             else:
@@ -269,6 +273,16 @@ def set_notification_context(
                 return
             else:
                 raise
+
+
+TX_ABORTED_ERROR_MESSAGE = (
+    'current transaction is aborted, commands ignored until end of transaction block'
+)
+
+def set_notification_context(
+    context: Dict[str, Any], using: Optional[str] = None
+) -> None:
+    update_notification_context(lambda _: context, using=using)
 
 
 def locate_channel(channel):
