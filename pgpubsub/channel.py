@@ -239,8 +239,8 @@ def _get_notification_context(cursor) -> dict[str, str]:
     return json.loads(val) if val else {}
 
 
-def update_notification_context(
-    mutation: Callable[[Dict[str, Any]], Dict[str, Any]], using: Optional[str] = None
+def _update_notification_context(
+    mutation: Callable[[Callable[[], Dict[str, Any]]], Dict[str, Any]], using: Optional[str] = None
 ) -> None:
     if using:
         conn = connections[using]
@@ -259,7 +259,7 @@ def update_notification_context(
         )
     with conn.cursor() as cursor:
         try:
-            context = mutation(_get_notification_context(cursor))
+            context = mutation(lambda: _get_notification_context(cursor))
             if use_tx_bound_notification_context:
                 scope = 'LOCAL'
             else:
@@ -274,6 +274,17 @@ def update_notification_context(
             else:
                 raise
 
+def update_notification_context(
+    mutator: Callable[[Dict[str, Any]], Dict[str, Any]], using: Optional[str] = None
+) -> None:
+    """
+    update existing notification context by applying mutator function to it
+    """
+    _update_notification_context(
+        lambda existing_context_provider: mutator(existing_context_provider()),
+        using=using,
+    )
+
 
 TX_ABORTED_ERROR_MESSAGE = (
     'current transaction is aborted, commands ignored until end of transaction block'
@@ -282,7 +293,10 @@ TX_ABORTED_ERROR_MESSAGE = (
 def set_notification_context(
     context: Dict[str, Any], using: Optional[str] = None
 ) -> None:
-    update_notification_context(lambda _: context, using=using)
+    """
+    set notification context value
+    """
+    _update_notification_context(lambda _: context, using=using)
 
 
 def locate_channel(channel):
