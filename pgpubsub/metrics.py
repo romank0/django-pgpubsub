@@ -6,8 +6,8 @@ from django.utils import timezone
 from opentelemetry import metrics
 
 
-class MeterProviderFactory(Protocol):
-    def get_meter_provider() -> metrics.MeterProvider:
+class OpentelemetryInitializer(Protocol):
+    def __call__() -> None:
         ...
 
 
@@ -52,17 +52,15 @@ def _create_instruments(meter: metrics.Meter) -> None:
 
 
 def configure_monitoring():
-    meter_provider_factory_classname: str = getattr(
-        settings, "PGPUBSUB_METER_PROVIDER_FACTORY", None
+    opentelemetry_initializer_func_qname: str | None = getattr(
+        settings, "PGPUBSUB_OPENTELEMETRY_INITIALIZER", None
     )
-    if meter_provider_factory_classname:
-        module_name, class_name = meter_provider_factory_classname.rsplit(".", 1)
-        MeterProviderFactoryClass: Type[MeterProviderFactory] = getattr(
-            __import__(module_name, fromlist=[class_name]), class_name
+    if opentelemetry_initializer_func_qname:
+        module_name, func_name = opentelemetry_initializer_func_qname.rsplit(".", 1)
+        opentelemetry_init: OpentelemetryInitializer = getattr(
+            __import__(module_name, fromlist=[func_name]), func_name
         )
-        meter_provider_factory: MeterProviderFactory = MeterProviderFactoryClass()
-        meter_provider = meter_provider_factory.get_meter_provider()
-        metrics.set_meter_provider(meter_provider)
+        opentelemetry_init()
 
         meter: metrics.Meter = metrics.get_meter(__name__)
 

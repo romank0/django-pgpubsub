@@ -11,36 +11,34 @@ To facilitate the listener process monitoring several metrics can be exported vi
 - ``notifications-queue.processing-lag``: the age (in the milliseconds) of the
   oldest unprocessed notification.
 
-Do to that implement ``MeterProviderFactory``. Here's the example of the console
-exporter:
+Do to that implement a functionthat would configure opentelemetry meter provider.
+Here's and example withe the console exporter:
 
 .. code-block:: python
 
-    # some/path/mymeter.py
-   
+    # some/path/my_opentelemetry_init.py
+
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
-   
-    from pgpubsub.metrics import MeterProviderFactory
-  
-    
-    class TestMeterProviderFactory(MeterProviderFactory):
-        def get_meter_provider(self) -> MeterProvider:
-            exporter = ConsoleMetricExporter()
-            reader = PeriodicExportingMetricReader(
-                exporter,
-                export_interval_millis=5_000,
-            )
-            return MeterProvider(metric_readers=[reader])
+
+
+    def initialize_opentelemetry() -> None:
+        exporter = ConsoleMetricExporter()
+        reader = PeriodicExportingMetricReader(
+            exporter,
+            export_interval_millis=5_000,
+        )
+        meter_provider = MeterProvider(metric_readers=[reader])
+        metrics.set_meter_provider(meter_provider)
 
 You'll need to add ``opentelemetry-sdk`` package to you project.
 
-Then specify that this factory should be used by ``pgpubsub`` to export
-metrics in django settings:
+Then specify that this function should be used by ``pgpubsub`` to initalize
+opentelemetry in django settings:
 
 .. code-block:: python
 
-    # package together with classname should be specified
-    PGPUBSUB_METER_PROVIDER_FACTORY = "some.path.mymeter.TestMeterProviderFactory"
+    # package together with function name should be specified
+    PGPUBSUB_OPENTELEMETRY_INITIALIZER = "some.path.my_opentelemetry_init.initialize_opentelemetry"
     # this allows to configure metrics prefix
     PGPUBSUB_METRIC_PREFIX = "myapp-metrics"

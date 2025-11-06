@@ -1,41 +1,37 @@
 from time import sleep
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 from django.conf import settings
-from opentelemetry.metrics import MeterProvider
 import pytest
 
 from pgpubsub.metrics import (
     configure_monitoring,
     queue_length_callback,
     queue_processing_lag_callback,
-    MeterProviderFactory,
 )
 from pgpubsub.models import Notification
 
 
-class MockMeterProviderFactory(MeterProviderFactory):
-    meter_provider: MeterProvider = None
-
-    def get_meter_provider(self) -> MeterProvider:
-        return self.meter_provider
+_init_opentelemetry_mock = Mock()
 
 
-def test_configures_monitoring_using_meter_provider(settings):
-    meter_provider = MagicMock()
-    MockMeterProviderFactory.meter_provider = meter_provider
-    settings.PGPUBSUB_METER_PROVIDER_FACTORY = (
-        "pgpubsub.tests.test_metrics.MockMeterProviderFactory"
+def _init_opentelemetry() -> None:
+    _init_opentelemetry_mock()
+
+
+def test_configures_meters_when_initializer_is_set(settings):
+    settings.PGPUBSUB_OPENTELEMETRY_INITIALIZER = (
+        "pgpubsub.tests.test_metrics._init_opentelemetry"
     )
 
     with patch("pgpubsub.metrics.metrics") as metrics_api_mock:
         meter_mock = MagicMock()
         metrics_api_mock.get_meter.return_value = meter_mock
+        _init_opentelemetry_mock.reset_mock()
 
         configure_monitoring()
 
-        metrics_api_mock.set_meter_provider.assert_called_once_with(meter_provider)
-        metrics_api_mock.get_meter.assert_called()
+        _init_opentelemetry_mock.assert_called_once()
         meter_mock.create_observable_gauge.assert_any_call(
             name="pgpubsub.notifications-queue.len",
             callbacks=[queue_length_callback],
@@ -50,12 +46,16 @@ def test_configures_monitoring_using_meter_provider(settings):
         )
 
 
-def test_does_not_configure_monitoring_with_no_setting(settings):
-    if hasattr(settings, 'PGPUBSUB_METER_PROVIDER_FACTORY'):
-        delattr(settings, 'PGPUBSUB_METER_PROVIDER_FACTORY')
-    with patch("opentelemetry.metrics.set_meter_provider") as set_meter_provider_mock:
+def test_does_not_configure_meters_with_no_initializer_configured(settings):
+    if hasattr(settings, 'PGPUBSUB_OPENTELEMETRY_INITIALIZER'):
+        delattr(settings, 'PGPUBSUB_OPENTELEMETRY_INITIALIZER')
+
+    with patch("pgpubsub.metrics.metrics") as metrics_api_mock:
+        meter_mock = MagicMock()
+        metrics_api_mock.get_meter.return_value = meter_mock
+
         configure_monitoring()
-        set_meter_provider_mock.assert_not_called()
+        meter_mock.create_observable_gauge.assert_not_called()
 
 
 @pytest.mark.django_db
