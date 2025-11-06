@@ -11,8 +11,8 @@ To facilitate the listener process monitoring several metrics can be exported vi
 - ``notifications-queue.processing-lag``: the age (in the milliseconds) of the
   oldest unprocessed notification.
 
-Do to that implement a functionthat would configure opentelemetry meter provider.
-Here's and example withe the console exporter:
+To do that implement a function that would configure an opentelemetry meter provider.
+Here's an example with the console exporter:
 
 .. code-block:: python
 
@@ -31,14 +31,14 @@ Here's and example withe the console exporter:
         meter_provider = MeterProvider(metric_readers=[reader])
         metrics.set_meter_provider(meter_provider)
 
-You'll need to add ``opentelemetry-sdk`` package to you project.
+You'll need to add ``opentelemetry-sdk`` package to your project.
 
-Then specify that this function should be used by ``pgpubsub`` to initalize
+Then specify that this function should be used by ``pgpubsub`` to initialize
 opentelemetry in django settings:
 
 .. code-block:: python
 
-    # package together with function name should be specified
+    # import path together with the function name should be specified
     PGPUBSUB_OPENTELEMETRY_INITIALIZER = "some.path.my_opentelemetry_init.initialize_opentelemetry"
     # this allows to configure metrics prefix
     PGPUBSUB_METRIC_PREFIX = "myapp-metrics"
