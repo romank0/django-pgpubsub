@@ -46,7 +46,7 @@ def test_configures_meters_when_initializer_is_set(settings):
         )
 
 
-def test_does_not_configure_meters_with_no_initializer_configured(settings):
+def test_configures_meters_when_no_initializer_configured(settings):
     if hasattr(settings, 'PGPUBSUB_OPENTELEMETRY_INITIALIZER'):
         delattr(settings, 'PGPUBSUB_OPENTELEMETRY_INITIALIZER')
 
@@ -55,7 +55,19 @@ def test_does_not_configure_meters_with_no_initializer_configured(settings):
         metrics_api_mock.get_meter.return_value = meter_mock
 
         configure_monitoring()
-        meter_mock.create_observable_gauge.assert_not_called()
+
+        meter_mock.create_observable_gauge.assert_any_call(
+            name="pgpubsub.notifications-queue.len",
+            callbacks=[queue_length_callback],
+            description=ANY,
+            unit="items",
+        )
+        meter_mock.create_observable_gauge.assert_any_call(
+            name="pgpubsub.notifications-queue.processing-lag",
+            callbacks=[queue_processing_lag_callback],
+            description=ANY,
+            unit="ms",
+        )
 
 
 @pytest.mark.django_db

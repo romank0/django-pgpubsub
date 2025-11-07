@@ -62,6 +62,6 @@ def configure_monitoring():
         )
         opentelemetry_init()
 
-        meter: metrics.Meter = metrics.get_meter(__name__)
+    meter: metrics.Meter = metrics.get_meter(__name__)
 
-        _create_instruments(meter)
+    _create_instruments(meter)
